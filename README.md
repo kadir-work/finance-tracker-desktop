@@ -35,28 +35,29 @@ The app is designed to run fully on a local work computer, with optional Google 
 
 ## Screenshots
 
-Add project screenshots here later. Suggested file paths:
-
-- `docs/screenshots/dashboard.png`
-- `docs/screenshots/transactions.png`
-- `docs/screenshots/reports.png`
-- `docs/screenshots/settings.png`
-
-Suggested markdown block when you are ready:
-
-```md
 ### Dashboard
+
 ![Dashboard](docs/screenshots/dashboard.png)
 
+### New Transaction
+
+![New Transaction](docs/screenshots/newTransactions.png)
+
 ### Transactions
+
 ![Transactions](docs/screenshots/transactions.png)
 
 ### Reports
+
 ![Reports](docs/screenshots/reports.png)
 
+### Comparison View
+
+![Comparison View](docs/screenshots/report.png)
+
 ### Settings
+
 ![Settings](docs/screenshots/settings.png)
-```
 
 ## Main Pages
 

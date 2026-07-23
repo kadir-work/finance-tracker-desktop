@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PrintButton } from "@/components/ui/print-button";
 
 export function TransactionsView() {
   const router = useRouter();
@@ -84,9 +85,10 @@ export function TransactionsView() {
       <PageHeader
         title="Islemler"
         description="Kayitlari gun, ay, yil veya tum donem bazinda filtreleyin. Kategori, islem turu ve metin aramasi ile daraltin."
+        actions={<PrintButton label="Listeyi Yazdır" />}
       />
 
-      <Card>
+      <Card className="print:hidden">
         <CardHeader>
           <CardTitle>Filtreler</CardTitle>
         </CardHeader>
@@ -215,7 +217,7 @@ export function TransactionsView() {
                 <div className="text-sm">{transaction.category.name}</div>
                 <div className="text-sm">{transaction.type === "income" ? "Gelir" : "Gider"}</div>
                 <div className="font-semibold">{formatCurrency(transaction.amount, transaction.currencyCode ?? "TRY")}</div>
-                <div className="flex items-center gap-2 xl:justify-end">
+                <div className="flex items-center gap-2 xl:justify-end print:hidden">
                   <Button
                     variant="outline"
                     size="icon"

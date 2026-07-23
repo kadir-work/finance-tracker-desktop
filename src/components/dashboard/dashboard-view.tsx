@@ -8,6 +8,7 @@ import type { DashboardData } from "@/lib/types";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PrintButton } from "@/components/ui/print-button";
 
 const colors = ["#264653", "#2a9d8f", "#f4a261", "#e76f51", "#8ab17d"];
 
@@ -29,7 +30,17 @@ export function DashboardView() {
       <PageHeader
         title="Genel Panel"
         description="Cari ay ozetini, son islemleri ve kategori bazli gider dagilimini hizlica gorun."
-        actions={<input className="h-10 rounded-md border border-input bg-white px-3 text-sm" type="month" value={month} onChange={(event) => setMonth(event.target.value)} />}
+        actions={
+          <div className="flex items-center gap-3">
+            <input
+              className="h-10 rounded-md border border-input bg-white px-3 text-sm print:hidden"
+              type="month"
+              value={month}
+              onChange={(event) => setMonth(event.target.value)}
+            />
+            <PrintButton label="Paneli Yazdır" />
+          </div>
+        }
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr_0.8fr]">

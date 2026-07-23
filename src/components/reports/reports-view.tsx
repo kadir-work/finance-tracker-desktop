@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PrintButton } from "@/components/ui/print-button";
 
 type PeriodSelection = {
   periodType: ReportPeriodType;
@@ -28,7 +29,7 @@ function ReportPeriodControls({
   categories: Category[];
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3 print:hidden">
       <Select
         value={value.periodType}
         onValueChange={(periodType) =>
@@ -200,7 +201,12 @@ export function ReportsView() {
       <PageHeader
         title="Raporlar"
         description="Gunluk, aylik, yillik veya tum donem bazinda gelir, gider, net sonuc ve kategori dagilimini inceleyin."
-        actions={<ReportPeriodControls value={selection} onChange={setSelection} categories={categories} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <ReportPeriodControls value={selection} onChange={setSelection} categories={categories} />
+            <PrintButton label="Raporu Yazdır" />
+          </div>
+        }
       />
 
       <div className="grid gap-4 xl:grid-cols-3">

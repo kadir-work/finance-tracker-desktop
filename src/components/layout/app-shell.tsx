@@ -89,7 +89,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <main className="overflow-hidden rounded-[28px] border border-border/70 bg-[radial-gradient(circle_at_top_right,#ffffff_0%,#f8faf7_45%,#eef1ea_100%)] shadow-soft">
-          <div className="h-full p-8">{children}</div>
+          <div className="h-full p-8">
+            <div className="print-only mb-6 border-b border-border pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground">Finans Takip Raporu</p>
+                  <h1 className="text-2xl font-bold text-foreground">{workspaceName}</h1>
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  <p>Yazdırma Tarihi: {new Date().toLocaleDateString("tr-TR")}</p>
+                  <p>Raporlama Sistemi</p>
+                </div>
+              </div>
+            </div>
+            {children}
+          </div>
         </main>
       </div>
     </div>

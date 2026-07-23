@@ -17,3 +17,62 @@ body {
   border-color: theme("colors.border");
 }
 
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print\:hidden,
+  aside,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset outer grid shell when printing */
+  div.grid-cols-\[280px_1fr\] {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  main {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Ensure cards break gracefully across pages */
+  .rounded-2xl,
+  .rounded-\[28px\] {
+    border-radius: 8px !important;
+  }
+
+  div[class*="Card"],
+  .card,
+  tr {
+    break-inside: avoid;
+  }
+}
+
