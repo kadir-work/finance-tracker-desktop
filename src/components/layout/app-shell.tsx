@@ -49,8 +49,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-[280px_1fr] gap-6 px-6 py-6">
-        <aside className="rounded-[28px] border border-white/60 bg-[linear-gradient(180deg,#264653_0%,#20323f_100%)] p-6 text-white shadow-soft">
+      <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-[280px_1fr] items-start gap-6 px-6 py-6">
+        <aside className="sticky top-6 flex max-h-[calc(100vh-3rem)] flex-col justify-between overflow-y-auto rounded-[28px] border border-white/60 bg-[linear-gradient(180deg,#264653_0%,#20323f_100%)] p-6 text-white shadow-soft">
           <div className="mb-10">
             <p className="text-xs uppercase tracking-[0.35em] text-white/60">Finans Takip</p>
             <h1 className="mt-3 text-2xl font-semibold">{workspaceName}</h1>
