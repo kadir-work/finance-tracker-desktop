@@ -83,11 +83,31 @@ function ReportPeriodControls({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Tum kategoriler</SelectItem>
-          {categories.map((category) => (
-            <SelectItem key={category.id} value={category.id}>
-              {category.name}
-            </SelectItem>
-          ))}
+          {(() => {
+            const rootCategories = categories.filter((c) => !c.parentId);
+            const options: Array<{ id: string; label: string; isChild: boolean }> = [];
+
+            for (const root of rootCategories) {
+              options.push({ id: root.id, label: `📁 ${root.name}`, isChild: false });
+              const children = categories.filter((c) => c.parentId === root.id);
+              for (const child of children) {
+                options.push({ id: child.id, label: `\u00A0\u00A0\u00A0\u00A0↳ ${child.name}`, isChild: true });
+              }
+            }
+
+            const renderedIds = new Set(options.map((o) => o.id));
+            for (const cat of categories) {
+              if (!renderedIds.has(cat.id)) {
+                options.push({ id: cat.id, label: cat.name, isChild: false });
+              }
+            }
+
+            return options.map((opt) => (
+              <SelectItem key={opt.id} value={opt.id} className={opt.isChild ? "pl-6 font-medium text-foreground" : "font-semibold text-primary"}>
+                {opt.label}
+              </SelectItem>
+            ));
+          })()}
         </SelectContent>
       </Select>
     </div>

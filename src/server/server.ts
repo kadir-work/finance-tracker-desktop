@@ -146,18 +146,36 @@ function readCookieValue(cookieHeader: string | undefined, name: string) {
   return null;
 }
 
+async function getCategoryIdsForFilter(categoryId?: string) {
+  if (!categoryId || categoryId === "all") {
+    return null;
+  }
+
+  const children = await prisma.category.findMany({
+    where: { parentId: categoryId },
+    select: { id: true },
+  });
+
+  if (children.length === 0) {
+    return [categoryId];
+  }
+
+  return [categoryId, ...children.map((child) => child.id)];
+}
+
 async function buildPeriodReport(
   periodType: PeriodType,
   input: { day?: string; month?: string; year?: string; categoryId?: string },
 ) {
   const range = getPeriodRange(periodType, input);
+  const categoryIds = await getCategoryIdsForFilter(input.categoryId);
 
   const transactions = await prisma.transaction.findMany({
     where: {
       ...(range.start && range.end ? { date: { gte: range.start, lt: range.end } } : {}),
-      ...(input.categoryId && input.categoryId !== "all" ? { categoryId: input.categoryId } : {}),
+      ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
     },
-    include: { category: true },
+    include: { category: { include: { parent: true } } },
     orderBy: { date: "asc" },
   });
 
@@ -168,7 +186,8 @@ async function buildPeriodReport(
   const trendMap = new Map<string, { income: number; expense: number }>();
 
   for (const item of transactions) {
-    const categoryData = byCategoryMap.get(item.category.name) ?? { income: 0, expense: 0 };
+    const categoryName = item.category.parent ? `${item.category.parent.name} > ${item.category.name}` : item.category.name;
+    const categoryData = byCategoryMap.get(categoryName) ?? { income: 0, expense: 0 };
     const date = new Date(item.date);
 
     let trendKey = "";
@@ -192,7 +211,7 @@ async function buildPeriodReport(
       trendData.expense += item.amount;
     }
 
-    byCategoryMap.set(item.category.name, categoryData);
+    byCategoryMap.set(categoryName, categoryData);
     trendMap.set(trendKey, trendData);
   }
 
@@ -300,6 +319,7 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
 
   app.get("/api/categories", async (_request, response) => {
     const categories = await prisma.category.findMany({
+      include: { parent: true, children: true },
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
     });
     response.json(categories);
@@ -323,7 +343,9 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
       data: {
         name: result.data.name.trim(),
         description: result.data.description?.trim() || null,
+        parentId: result.data.parentId?.trim() || null,
       },
+      include: { parent: true, children: true },
     });
 
     return response.status(201).json(category);
@@ -331,11 +353,15 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
 
   app.put("/api/categories/:id", async (request, response) => {
     const id = request.params.id;
-    const payload = request.body as { name?: string; description?: string; isActive?: boolean };
+    const payload = request.body as { name?: string; description?: string; parentId?: string | null; isActive?: boolean };
 
     const current = await prisma.category.findUnique({ where: { id } });
     if (!current) {
       return response.status(404).json({ message: "Kategori bulunamadi." });
+    }
+
+    if (payload.parentId && payload.parentId === id) {
+      return response.status(400).json({ message: "Bir kategori kendisinin ust kategorisi olamaz." });
     }
 
     const category = await prisma.category.update({
@@ -344,8 +370,11 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
         name: payload.name?.trim() || current.name,
         description:
           payload.description !== undefined ? payload.description.trim() || null : current.description,
+        parentId:
+          payload.parentId !== undefined ? payload.parentId?.trim() || null : current.parentId,
         isActive: payload.isActive ?? current.isActive,
       },
+      include: { parent: true, children: true },
     });
 
     return response.json(category);
@@ -393,11 +422,12 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
       query,
     } = request.query as Record<string, string | undefined>;
     const range = getPeriodRange(periodType as PeriodType, { day, month, year });
+    const categoryIds = await getCategoryIdsForFilter(categoryId);
 
     const transactions = await prisma.transaction.findMany({
       where: {
         ...(range.start && range.end ? { date: { gte: range.start, lt: range.end } } : {}),
-        ...(categoryId ? { categoryId } : {}),
+        ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
         ...(type && type !== "all" ? { type } : {}),
         ...(query
           ? {
@@ -408,7 +438,7 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
             }
           : {}),
       },
-      include: { category: true },
+      include: { category: { include: { parent: true } } },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     });
 

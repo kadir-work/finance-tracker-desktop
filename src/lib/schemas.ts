@@ -16,6 +16,7 @@ export const transactionFormSchema = z.object({
 export const categorySchema = z.object({
   name: z.string().min(2, "Kategori adi en az 2 karakter olmalidir."),
   description: z.string().max(200, "Aciklama en fazla 200 karakter olabilir.").optional().or(z.literal("")),
+  parentId: z.string().nullable().optional().or(z.literal("")),
 });
 
 export const settingsSchema = z.object({

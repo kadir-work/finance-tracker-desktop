@@ -8,12 +8,20 @@ export async function bootstrapDatabase() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       description TEXT,
+      parentId TEXT,
       isDefault BOOLEAN NOT NULL DEFAULT false,
       isActive BOOLEAN NOT NULL DEFAULT true,
       createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (parentId) REFERENCES Category(id) ON DELETE SET NULL
     )
   `);
+
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE Category ADD COLUMN parentId TEXT REFERENCES Category(id) ON DELETE SET NULL`);
+  } catch (_e) {
+    // Column already exists in existing database
+  }
 
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS Currency (
@@ -53,6 +61,45 @@ export async function bootstrapDatabase() {
     )
   `);
 
+  await prisma.$executeRawUnsafe(
+    `INSERT OR IGNORE INTO Category (id, name, description, isDefault, isActive) VALUES (?, ?, ?, ?, 1)`,
+    "cat-fatura",
+    "Fatura",
+    "Elektrik, su, gaz ve internet gibi fatura giderleri",
+    1,
+  );
+  await prisma.$executeRawUnsafe(
+    `INSERT OR IGNORE INTO Category (id, name, description, parentId, isDefault, isActive) VALUES (?, ?, ?, ?, ?, 1)`,
+    "cat-elektrik",
+    "Elektrik",
+    "Elektrik faturası odemeleri",
+    "cat-fatura",
+    1,
+  );
+  await prisma.$executeRawUnsafe(
+    `INSERT OR IGNORE INTO Category (id, name, description, parentId, isDefault, isActive) VALUES (?, ?, ?, ?, ?, 1)`,
+    "cat-su",
+    "Su",
+    "Su faturası odemeleri",
+    "cat-fatura",
+    1,
+  );
+  await prisma.$executeRawUnsafe(
+    `INSERT OR IGNORE INTO Category (id, name, description, parentId, isDefault, isActive) VALUES (?, ?, ?, ?, ?, 1)`,
+    "cat-gaz",
+    "Doğalgaz",
+    "Doğalgaz faturası odemeleri",
+    "cat-fatura",
+    1,
+  );
+  await prisma.$executeRawUnsafe(
+    `INSERT OR IGNORE INTO Category (id, name, description, parentId, isDefault, isActive) VALUES (?, ?, ?, ?, ?, 1)`,
+    "cat-internet",
+    "İnternet",
+    "İnternet faturası odemeleri",
+    "cat-fatura",
+    1,
+  );
   await prisma.$executeRawUnsafe(
     `INSERT OR IGNORE INTO Category (id, name, description, isDefault, isActive) VALUES (?, ?, ?, ?, 1)`,
     "cat-mutfak",

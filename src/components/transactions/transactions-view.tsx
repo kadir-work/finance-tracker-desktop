@@ -121,11 +121,31 @@ export function TransactionsView() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tum kategoriler</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
+              {(() => {
+                const rootCategories = categories.filter((c) => !c.parentId);
+                const options: Array<{ id: string; label: string; isChild: boolean }> = [];
+
+                for (const root of rootCategories) {
+                  options.push({ id: root.id, label: `📁 ${root.name}`, isChild: false });
+                  const children = categories.filter((c) => c.parentId === root.id);
+                  for (const child of children) {
+                    options.push({ id: child.id, label: `\u00A0\u00A0\u00A0\u00A0↳ ${child.name}`, isChild: true });
+                  }
+                }
+
+                const renderedIds = new Set(options.map((o) => o.id));
+                for (const cat of categories) {
+                  if (!renderedIds.has(cat.id)) {
+                    options.push({ id: cat.id, label: cat.name, isChild: false });
+                  }
+                }
+
+                return options.map((opt) => (
+                  <SelectItem key={opt.id} value={opt.id} className={opt.isChild ? "pl-6 font-medium text-foreground" : "font-semibold text-primary"}>
+                    {opt.label}
+                  </SelectItem>
+                ));
+              })()}
             </SelectContent>
           </Select>
           <Select value={type} onValueChange={setType}>
@@ -214,7 +234,16 @@ export function TransactionsView() {
                   <p className="font-medium">{transaction.description}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{transaction.person}</p>
                 </div>
-                <div className="text-sm">{transaction.category.name}</div>
+                <div className="text-sm">
+                  {transaction.category.parent ? (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-muted-foreground">{transaction.category.parent.name} &gt;</span>
+                      <span className="font-medium">{transaction.category.name}</span>
+                    </span>
+                  ) : (
+                    transaction.category.name
+                  )}
+                </div>
                 <div className="text-sm">{transaction.type === "income" ? "Gelir" : "Gider"}</div>
                 <div className="font-semibold">{formatCurrency(transaction.amount, transaction.currencyCode ?? "TRY")}</div>
                 <div className="flex items-center gap-2 xl:justify-end print:hidden">

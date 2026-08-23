@@ -2,6 +2,9 @@ export type Category = {
   id: string;
   name: string;
   description?: string | null;
+  parentId?: string | null;
+  parent?: Category | null;
+  children?: Category[];
   isDefault: boolean;
   isActive: boolean;
   createdAt: string;
