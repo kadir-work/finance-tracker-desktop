@@ -91,7 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-2.5 text-xs text-white/70">
               <span>Gelistirici</span>
               <a
-                href="https://kadir.works"
+                href="https://www.kadir.works/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium text-white/90 underline decoration-white/30 underline-offset-4 transition-colors hover:text-white hover:decoration-white"

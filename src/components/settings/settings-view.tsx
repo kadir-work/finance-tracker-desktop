@@ -409,7 +409,7 @@ export function SettingsView() {
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Gelistirici &amp; Web Sitesi</p>
             <a
-              href="https://kadir.works"
+              href="https://www.kadir.works/"
               target="_blank"
               rel="noopener noreferrer"
               className="mt-1 inline-block font-semibold text-primary hover:underline"
