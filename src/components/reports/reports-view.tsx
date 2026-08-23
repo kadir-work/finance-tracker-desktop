@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Printer } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
 import { formatCurrency, getMonthInputValue, getPreviousMonthInputValue } from "@/lib/format";
 import type { Category, MonthlyReportData, ReportPeriodType } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +21,8 @@ type PeriodSelection = {
   year: string;
   categoryId: string;
 };
+
+type PrintScope = "all" | "summary" | "categories" | "comparison";
 
 function ReportPeriodControls({
   value,
@@ -120,6 +125,7 @@ export function ReportsView() {
   const today = new Date().toISOString().slice(0, 10);
   const currentYear = String(new Date().getFullYear());
   const [categories, setCategories] = useState<Category[]>([]);
+  const [printScope, setPrintScope] = useState<PrintScope>("all");
   const [selection, setSelection] = useState<PeriodSelection>({
     periodType: "monthly",
     month: initial,
@@ -145,6 +151,14 @@ export function ReportsView() {
   const [leftReport, setLeftReport] = useState<MonthlyReportData | null>(null);
   const [rightReport, setRightReport] = useState<MonthlyReportData | null>(null);
   const [chartReady, setChartReady] = useState(false);
+
+  const triggerSectionPrint = (scope: PrintScope) => {
+    setPrintScope(scope);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => setPrintScope("all"), 500);
+    }, 150);
+  };
 
   useEffect(() => {
     api.getCategories().then(setCategories).catch(console.error);
@@ -224,12 +238,23 @@ export function ReportsView() {
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <ReportPeriodControls value={selection} onChange={setSelection} categories={categories} />
-            <PrintButton label="Raporu Yazdır" />
+            <Select onValueChange={(val) => triggerSectionPrint(val as PrintScope)}>
+              <SelectTrigger className="w-[190px] print:hidden bg-primary text-primary-foreground hover:bg-primary/90">
+                <Printer className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Yazdır Seçeneği" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🖨️ Tüm Raporu Yazdır</SelectItem>
+                <SelectItem value="summary">📊 Sadece Özet &amp; Grafikleri Yazdır (1 Sayfa)</SelectItem>
+                <SelectItem value="categories">🏷️ Sadece Kategori Dağılımını Yazdır</SelectItem>
+                <SelectItem value="comparison">⚖️ Sadece Karşılaştırmayı Yazdır</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className={cn("grid gap-4 xl:grid-cols-3", printScope !== "all" && printScope !== "summary" && "print:hidden")}>
         <Card>
           <CardHeader>
             <CardDescription>Toplam gelir</CardDescription>
@@ -250,11 +275,22 @@ export function ReportsView() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Donem hareketi</CardTitle>
-            <CardDescription>PDF veya Excel disa aktarma icin uygun yapiya hazir ozet</CardDescription>
+      <div className={cn("mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]", printScope !== "all" && printScope !== "summary" && printScope !== "categories" && "print:hidden")}>
+        <Card className={cn(printScope !== "all" && printScope !== "summary" && "print:hidden")}>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Donem hareketi</CardTitle>
+              <CardDescription>PDF veya Excel disa aktarma icin uygun yapiya hazir ozet</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
+              onClick={() => triggerSectionPrint("summary")}
+              title="Sadece bu bölümü yazdır (1 Sayfa)"
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent className="h-[340px]">
             {chartReady ? (
@@ -273,12 +309,23 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Kategori bazli toplamlar</CardTitle>
-            <CardDescription>
-              {report?.periodLabel ?? "Secili donem"} • {selectedCategoryName}
-            </CardDescription>
+        <Card className={cn(printScope !== "all" && printScope !== "summary" && printScope !== "categories" && "print:hidden")}>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Kategori bazli toplamlar</CardTitle>
+              <CardDescription>
+                {report?.periodLabel ?? "Secili donem"} • {selectedCategoryName}
+              </CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
+              onClick={() => triggerSectionPrint("categories")}
+              title="Sadece bu bölümü yazdır"
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             {report?.byCategory.length ? (
@@ -303,13 +350,24 @@ export function ReportsView() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Donem Karsilastirmasi</CardTitle>
-            <CardDescription>
-              Varsayilan olarak bu ay ve gecen ay gelir. Donem, kategori veya ikisini birlikte karsilastirin.
-            </CardDescription>
+      <div className={cn("mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]", printScope !== "all" && printScope !== "comparison" && "print:hidden")}>
+        <Card className={cn(printScope !== "all" && printScope !== "comparison" && "print:hidden")}>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Donem Karsilastirmasi</CardTitle>
+              <CardDescription>
+                Varsayilan olarak bu ay ve gecen ay gelir. Donem, kategori veya ikisini birlikte karsilastirin.
+              </CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
+              onClick={() => triggerSectionPrint("comparison")}
+              title="Sadece bu bölümü yazdır"
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="rounded-2xl border border-border/70 bg-white p-4">
@@ -352,12 +410,23 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Karsilastirma Ozeti</CardTitle>
-            <CardDescription>
-              {leftReport?.periodLabel ?? "Donem 1"} / {leftCategoryName} ve {rightReport?.periodLabel ?? "Donem 2"} / {rightCategoryName} yan yana
-            </CardDescription>
+        <Card className={cn(printScope !== "all" && printScope !== "comparison" && "print:hidden")}>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Karsilastirma Ozeti</CardTitle>
+              <CardDescription>
+                {leftReport?.periodLabel ?? "Donem 1"} / {leftCategoryName} ve {rightReport?.periodLabel ?? "Donem 2"} / {rightCategoryName} yan yana
+              </CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
+              onClick={() => triggerSectionPrint("comparison")}
+              title="Sadece bu bölümü yazdır"
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
