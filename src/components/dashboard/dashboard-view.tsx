@@ -135,7 +135,7 @@ export function DashboardView() {
                     <div>
                       <p className="font-medium">{transaction.description}</p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {transaction.person} • {transaction.category.name} • {formatDate(transaction.date)}
+                        {transaction.person} • {transaction.category?.parent ? `${transaction.category.parent.name} > ${transaction.category.name}` : transaction.category?.name} • {formatDate(transaction.date)}
                       </p>
                     </div>
                     <div className="text-right">

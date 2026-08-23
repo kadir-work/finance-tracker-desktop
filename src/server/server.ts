@@ -518,10 +518,11 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
         where: {
           date: { gte: range.start, lt: range.end },
         },
-        include: { category: true },
+        include: { category: { include: { parent: true } } },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       }),
       prisma.transaction.findMany({
+        include: { category: { include: { parent: true } } },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       }),
     ]);
@@ -533,7 +534,8 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
 
     const grouped = new Map<string, number>();
     for (const item of expense) {
-      grouped.set(item.category.name, (grouped.get(item.category.name) ?? 0) + item.amount);
+      const name = item.category.parent ? `${item.category.parent.name} > ${item.category.name}` : item.category.name;
+      grouped.set(name, (grouped.get(name) ?? 0) + item.amount);
     }
 
     return response.json({
@@ -551,7 +553,7 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
       categoryDistribution: [...grouped.entries()]
         .map(([category, total]) => ({ category, total }))
         .sort((left, right) => right.total - left.total),
-      recentTransactions: transactions.slice(0, 8),
+      recentTransactions: allTransactions.slice(0, 8),
     });
   });
 
