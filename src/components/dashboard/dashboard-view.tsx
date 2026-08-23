@@ -5,17 +5,29 @@ import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, getMonthInputValue } from "@/lib/format";
 import type { DashboardData } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PrintButton } from "@/components/ui/print-button";
+import { PrintMenu } from "@/components/ui/print-menu";
 
 const colors = ["#264653", "#2a9d8f", "#f4a261", "#e76f51", "#8ab17d"];
+
+type PrintScope = "all" | "totals" | "categories" | "recent";
 
 export function DashboardView() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [month, setMonth] = useState(getMonthInputValue());
   const [chartReady, setChartReady] = useState(false);
+  const [printScope, setPrintScope] = useState<PrintScope>("all");
+
+  const triggerSectionPrint = (scope: PrintScope) => {
+    setPrintScope(scope);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => setPrintScope("all"), 500);
+    }, 150);
+  };
 
   useEffect(() => {
     api.getDashboard(month).then(setData).catch(console.error);
@@ -38,12 +50,20 @@ export function DashboardView() {
               value={month}
               onChange={(event) => setMonth(event.target.value)}
             />
-            <PrintButton label="Paneli Yazdır" />
+            <PrintMenu
+              options={[
+                { id: "all", label: "🖨️ Tüm Paneli Yazdır" },
+                { id: "totals", label: "💰 Sadece Kasa & Bakiye Özetini (1 Sayfa)" },
+                { id: "categories", label: "🍩 Sadece Kategori Grafiğini (1 Sayfa)" },
+                { id: "recent", label: "📜 Sadece Son İşlemleri (1 Sayfa)" },
+              ]}
+              onSelect={(val) => triggerSectionPrint(val as PrintScope)}
+            />
           </div>
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr_0.8fr]">
+      <div className={cn("grid gap-4 xl:grid-cols-[1.2fr_0.8fr_0.8fr]", printScope !== "all" && printScope !== "totals" && "print:hidden")}>
         <Card className="border-primary/20 bg-[linear-gradient(135deg,rgba(38,70,83,0.96),rgba(42,157,143,0.88))] text-white">
           <CardHeader>
             <CardDescription className="text-white/75">Kasada mevcut genel bakiye</CardDescription>
@@ -74,7 +94,7 @@ export function DashboardView() {
         </Card>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-3">
+      <div className={cn("mt-4 grid gap-4 xl:grid-cols-3", printScope !== "all" && printScope !== "totals" && "print:hidden")}>
         <Card>
           <CardHeader>
             <CardDescription>{data?.monthLabel ?? "Secili ay"} net sonuc</CardDescription>
@@ -83,8 +103,8 @@ export function DashboardView() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card>
+      <div className={cn("mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]", printScope !== "all" && printScope !== "categories" && printScope !== "recent" && "print:hidden")}>
+        <Card className={cn(printScope !== "all" && printScope !== "categories" && "print:hidden")}>
           <CardHeader>
             <CardTitle>Kategoriye gore gider dagilimi</CardTitle>
             <CardDescription>{data?.monthLabel ?? "Secili ay"} icin kategori bazli gorunum</CardDescription>
@@ -122,7 +142,7 @@ export function DashboardView() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={cn(printScope !== "all" && printScope !== "recent" && "print:hidden")}>
           <CardHeader>
             <CardTitle>Son islemler</CardTitle>
             <CardDescription>Hizli kontrol icin son kayitlar</CardDescription>

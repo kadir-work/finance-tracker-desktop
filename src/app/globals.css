@@ -63,6 +63,11 @@ body {
     max-width: 100% !important;
   }
 
+  /* Ensure grids collapse to 1 column during print if elements are hidden */
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
   /* Ensure cards break gracefully across pages */
   .rounded-2xl,
   .rounded-\[28px\] {

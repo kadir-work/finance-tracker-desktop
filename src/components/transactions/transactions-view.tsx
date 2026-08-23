@@ -6,6 +6,7 @@ import { Pencil, Search, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, getMonthInputValue } from "@/lib/format";
 import type { Category, Transaction } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -13,7 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PrintButton } from "@/components/ui/print-button";
+import { PrintMenu } from "@/components/ui/print-menu";
+
+type PrintScope = "all" | "summary" | "table";
 
 export function TransactionsView() {
   const router = useRouter();
@@ -29,7 +32,16 @@ export function TransactionsView() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [editingError, setEditingError] = useState("");
+  const [printScope, setPrintScope] = useState<PrintScope>("all");
   const editId = searchParams.get("edit");
+
+  const triggerSectionPrint = (scope: PrintScope) => {
+    setPrintScope(scope);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => setPrintScope("all"), 500);
+    }, 150);
+  };
 
   const refresh = useCallback(async () => {
     const params = new URLSearchParams({
@@ -61,10 +73,16 @@ export function TransactionsView() {
       return;
     }
 
-    api.getTransaction(editId)
-      .then((transaction) => {
-        setEditing(transaction);
-        setEditingError("");
+    api.getTransactions(new URLSearchParams())
+      .then((items) => {
+        const found = items.find((item) => item.id === editId);
+        if (found) {
+          setEditing(found);
+          setEditingError("");
+        } else {
+          setEditing(null);
+          setEditingError("Duzenlenecek kayit bulunamadi.");
+        }
       })
       .catch((error) => {
         setEditing(null);
@@ -85,7 +103,16 @@ export function TransactionsView() {
       <PageHeader
         title="Islemler"
         description="Kayitlari gun, ay, yil veya tum donem bazinda filtreleyin. Kategori, islem turu ve metin aramasi ile daraltin."
-        actions={<PrintButton label="Listeyi Yazdır" />}
+        actions={
+          <PrintMenu
+            options={[
+              { id: "all", label: "🖨️ Tüm Sayfayı Yazdır" },
+              { id: "summary", label: "📊 Sadece Özet Kartlarını (1 Sayfa)" },
+              { id: "table", label: "📋 Sadece İşlem Listesini Yazdır" },
+            ]}
+            onSelect={(val) => triggerSectionPrint(val as PrintScope)}
+          />
+        }
       />
 
       <Card className="print:hidden">
@@ -166,7 +193,7 @@ export function TransactionsView() {
       </Card>
 
       {editing ? (
-        <div className="mt-6">
+        <div className="mt-6 print:hidden">
           <PageHeader
             title="Kaydi Duzenle"
             description="Degisiklikleri kaydettikten sonra liste guncellenir."
@@ -195,12 +222,12 @@ export function TransactionsView() {
       ) : null}
 
       {editingError ? (
-        <div className="mt-6 rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <div className="mt-6 rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive print:hidden">
           {editingError}
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+      <div className={cn("mt-6 grid gap-4 xl:grid-cols-3", printScope !== "all" && printScope !== "summary" && "print:hidden")}>
         <Card>
           <CardHeader>
             <CardTitle>Filtreli gelir</CardTitle>
@@ -221,7 +248,7 @@ export function TransactionsView() {
         </Card>
       </div>
 
-      <Card className="mt-6">
+      <Card className={cn("mt-6", printScope !== "all" && printScope !== "table" && "print:hidden")}>
         <CardHeader>
           <CardTitle>Kayit listesi</CardTitle>
         </CardHeader>
