@@ -80,11 +80,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="mt-10 rounded-2xl bg-white/10 p-4 text-sm text-white/80">
-            <p className="font-medium text-white">Yerel veri guvencesi</p>
-            <p className="mt-2 leading-6">
-              Veriler SQLite ile bu bilgisayarda saklanir. Internet veya harici servis gerekmez.
-            </p>
+          <div className="mt-8 space-y-3">
+            <div className="rounded-2xl bg-white/10 p-4 text-sm text-white/80">
+              <p className="font-medium text-white">Yerel veri guvencesi</p>
+              <p className="mt-2 text-xs leading-5">
+                Veriler SQLite ile bu bilgisayarda saklanir. Internet veya harici servis gerekmez.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-2.5 text-xs text-white/70">
+              <span>Gelistirici</span>
+              <a
+                href="https://kadir.works"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-white/90 underline decoration-white/30 underline-offset-4 transition-colors hover:text-white hover:decoration-white"
+              >
+                kadir.works
+              </a>
+            </div>
           </div>
         </aside>
 

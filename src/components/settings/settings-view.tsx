@@ -396,6 +396,29 @@ export function SettingsView() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Uygulama Hakkında</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 text-sm">
+          <div>
+            <p className="font-semibold text-foreground">Finans Takip Desktop v0.1.0</p>
+            <p className="mt-1 text-xs text-muted-foreground">Yerel veritabani destekli masaustu butce ve finans yonetim sistemi.</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">Gelistirici &amp; Web Sitesi</p>
+            <a
+              href="https://kadir.works"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-block font-semibold text-primary hover:underline"
+            >
+              kadir.works
+            </a>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
