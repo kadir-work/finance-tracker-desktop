@@ -37,3 +37,35 @@ jobs:
             release/*.exe
             release/*.blockmap
             release/latest*.yml
+
+  build-mac:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Package Mac installer
+        run: npm run dist -- --publish never
+
+      - name: Upload Mac artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: finance-tracker-mac
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/latest*.yml
+
