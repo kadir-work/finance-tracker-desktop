@@ -7,9 +7,10 @@ import { prisma } from "./prisma";
 import { createBackup, getBackupStatus, openBackupDirectory, updateBackupDirectory } from "./backup";
 import { completeDriveOAuthFlow, disconnectDrive, getDriveConfig, startDriveOAuthFlow, updateDriveSettings } from "./drive";
 import { categorySchema, settingsSchema, transactionFormSchema } from "../lib/schemas";
-import { formatMonthYear } from "../lib/format";
+import { getPeriodRange } from "../lib/period";
+import type { ReportPeriodType } from "../lib/types";
 
-type PeriodType = "daily" | "monthly" | "yearly" | "all";
+type PeriodType = ReportPeriodType;
 const API_SESSION_COOKIE_NAME = "finans_api_session";
 const SAME_MACHINE_ORIGINS = new Set([
   "http://127.0.0.1:3000",
@@ -17,77 +18,6 @@ const SAME_MACHINE_ORIGINS = new Set([
   "http://127.0.0.1:3001",
   "http://localhost:3001",
 ]);
-
-function getMonthRange(monthInput?: string) {
-  const today = new Date();
-  const [year, month] = (monthInput ?? `${today.getFullYear()}-${`${today.getMonth() + 1}`.padStart(2, "0")}`)
-    .split("-")
-    .map(Number);
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 1);
-
-  return { year, month, start, end };
-}
-
-function getPeriodRange(
-  periodType: PeriodType,
-  input: { day?: string; month?: string; year?: string },
-) {
-  const today = new Date();
-
-  if (periodType === "all") {
-    return {
-      periodType,
-      label: "Tum donemler",
-      start: null,
-      end: null,
-    };
-  }
-
-  if (periodType === "daily") {
-    const dayValue = input.day ?? today.toISOString().slice(0, 10);
-    const [year, month, day] = dayValue.split("-").map(Number);
-    const start = new Date(year, month - 1, day);
-    const end = new Date(year, month - 1, day + 1);
-
-    return {
-      periodType,
-      label: new Intl.DateTimeFormat("tr-TR", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }).format(start),
-      start,
-      end,
-    };
-  }
-
-  if (periodType === "yearly") {
-    const year = Number(input.year ?? today.getFullYear());
-    const start = new Date(year, 0, 1);
-    const end = new Date(year + 1, 0, 1);
-
-    return {
-      periodType,
-      label: `${year}`,
-      start,
-      end,
-    };
-  }
-
-  const [year, month] = (input.month ?? `${today.getFullYear()}-${`${today.getMonth() + 1}`.padStart(2, "0")}`)
-    .split("-")
-    .map(Number);
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 1);
-
-  return {
-    periodType: "monthly" as const,
-    label: formatMonthYear(year, month),
-    start,
-    end,
-  };
-}
 
 function sumAmounts(items: Array<{ amount: number }>) {
   return items.reduce((total, item) => total + item.amount, 0);
@@ -193,6 +123,8 @@ async function buildPeriodReport(
     let trendKey = "";
     if (periodType === "daily") {
       trendKey = `${`${date.getHours()}`.padStart(2, "0")}:00`;
+    } else if (periodType === "last30days") {
+      trendKey = new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "2-digit" }).format(date);
     } else if (periodType === "yearly") {
       trendKey = new Intl.DateTimeFormat("tr-TR", { month: "short" }).format(date);
     } else if (periodType === "all") {
@@ -511,12 +443,18 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
   });
 
   app.get("/api/dashboard", async (request, response) => {
-    const range = getMonthRange(request.query.month as string | undefined);
+    const month = request.query.month as string | undefined;
+    const periodType = (request.query.periodType ?? (month ? "monthly" : "last30days")) as PeriodType;
+    const range = getPeriodRange(periodType, {
+      month,
+      day: request.query.day as string | undefined,
+      year: request.query.year as string | undefined,
+    });
 
     const [transactions, allTransactions] = await Promise.all([
       prisma.transaction.findMany({
         where: {
-          date: { gte: range.start, lt: range.end },
+          ...(range.start && range.end ? { date: { gte: range.start, lt: range.end } } : {}),
         },
         include: { category: { include: { parent: true } } },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -539,7 +477,7 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
     }
 
     return response.json({
-      monthLabel: formatMonthYear(range.year, range.month),
+      monthLabel: range.label,
       totals: {
         income: sumAmounts(income),
         expense: sumAmounts(expense),
@@ -553,7 +491,7 @@ export async function createApp(options?: { staticDir?: string; databasePath?: s
       categoryDistribution: [...grouped.entries()]
         .map(([category, total]) => ({ category, total }))
         .sort((left, right) => right.total - left.total),
-      recentTransactions: allTransactions.slice(0, 8),
+      recentTransactions: transactions.slice(0, 8),
     });
   });
 

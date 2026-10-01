@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
-import { formatCurrency, getMonthInputValue, getPreviousMonthInputValue } from "@/lib/format";
+import { formatCurrency, getDayInputValue, getMonthInputValue, getPreviousMonthInputValue } from "@/lib/format";
 import type { Category, MonthlyReportData, ReportPeriodType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PrintButton } from "@/components/ui/print-button";
+import { ReportPrintLayout } from "@/components/reports/report-print-layout";
 
 type PeriodSelection = {
   periodType: ReportPeriodType;
@@ -45,6 +45,7 @@ function ReportPeriodControls({
           <SelectValue placeholder="Donem secin" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="last30days">Son 30 gun</SelectItem>
           <SelectItem value="daily">Gunluk</SelectItem>
           <SelectItem value="monthly">Aylik</SelectItem>
           <SelectItem value="yearly">Yillik</SelectItem>
@@ -76,7 +77,7 @@ function ReportPeriodControls({
         />
       ) : (
         <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground">
-          Tum donemler
+          {value.periodType === "last30days" ? "Son 30 gun" : "Tum donemler"}
         </div>
       )}
       <Select
@@ -122,7 +123,7 @@ function ReportPeriodControls({
 export function ReportsView() {
   const initial = getMonthInputValue();
   const previousMonth = getPreviousMonthInputValue();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getDayInputValue();
   const currentYear = String(new Date().getFullYear());
   const [categories, setCategories] = useState<Category[]>([]);
   const [printScope, setPrintScope] = useState<PrintScope>("all");
@@ -156,9 +157,14 @@ export function ReportsView() {
     setPrintScope(scope);
     setTimeout(() => {
       window.print();
-      setTimeout(() => setPrintScope("all"), 500);
     }, 150);
   };
+
+  useEffect(() => {
+    const resetPrintScope = () => setPrintScope("all");
+    window.addEventListener("afterprint", resetPrintScope);
+    return () => window.removeEventListener("afterprint", resetPrintScope);
+  }, []);
 
   useEffect(() => {
     api.getCategories().then(setCategories).catch(console.error);
@@ -219,12 +225,14 @@ export function ReportsView() {
       ? "Tum kategoriler"
       : categories.find((category) => category.id === compareRight.categoryId)?.name ?? "Secili kategori";
 
+  const samePeriod = compareLeft.periodType === compareRight.periodType && (
+    compareLeft.periodType === "daily" ? compareLeft.day === compareRight.day :
+    compareLeft.periodType === "monthly" ? compareLeft.month === compareRight.month :
+    compareLeft.periodType === "yearly" ? compareLeft.year === compareRight.year : true
+  );
   const comparisonMode =
     compareLeft.categoryId !== compareRight.categoryId &&
-    compareLeft.periodType === compareRight.periodType &&
-    compareLeft.day === compareRight.day &&
-    compareLeft.month === compareRight.month &&
-    compareLeft.year === compareRight.year
+    samePeriod
       ? "Kategori bazli karsilastirma"
       : compareLeft.categoryId !== compareRight.categoryId
         ? "Donem ve kategori birlikte karsilastiriliyor"
@@ -232,268 +240,280 @@ export function ReportsView() {
 
   return (
     <div>
-      <PageHeader
-        title="Raporlar"
-        description="Gunluk, aylik, yillik veya tum donem bazinda gelir, gider, net sonuc ve kategori dagilimini inceleyin."
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <ReportPeriodControls value={selection} onChange={setSelection} categories={categories} />
-            <Select onValueChange={(val) => triggerSectionPrint(val as PrintScope)}>
-              <SelectTrigger className="w-[190px] print:hidden bg-primary text-primary-foreground hover:bg-primary/90">
-                <Printer className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Yazdır Seçeneği" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">🖨️ Tüm Raporu Yazdır</SelectItem>
-                <SelectItem value="summary">📊 Sadece Özet &amp; Grafikleri Yazdır (1 Sayfa)</SelectItem>
-                <SelectItem value="categories">🏷️ Sadece Kategori Dağılımını Yazdır</SelectItem>
-                <SelectItem value="comparison">⚖️ Sadece Karşılaştırmayı Yazdır</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        }
+      <ReportPrintLayout
+        scope={printScope}
+        report={report}
+        categoryName={selectedCategoryName}
+        leftReport={leftReport}
+        rightReport={rightReport}
+        leftCategoryName={leftCategoryName}
+        rightCategoryName={rightCategoryName}
+        comparisonMode={comparisonMode}
       />
+      <div className="print:hidden">
+        <PageHeader
+          title="Raporlar"
+          description="Son 30 gun, gunluk, aylik, yillik veya tum donem bazinda gelir, gider, net sonuc ve kategori dagilimini inceleyin."
+          actions={
+            <div className="flex flex-wrap items-center gap-3">
+              <ReportPeriodControls value={selection} onChange={setSelection} categories={categories} />
+              <Select value="" onValueChange={(val) => triggerSectionPrint(val as PrintScope)}>
+                <SelectTrigger className="w-[190px] print:hidden bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Printer className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Yazdır Seçeneği" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">🖨️ Tüm Raporu Yazdır</SelectItem>
+                  <SelectItem value="summary">📊 Sadece Özet &amp; Grafikleri Yazdır (1 Sayfa)</SelectItem>
+                  <SelectItem value="categories">🏷️ Sadece Kategori Dağılımını Yazdır</SelectItem>
+                  <SelectItem value="comparison">⚖️ Sadece Karşılaştırmayı Yazdır</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          }
+        />
 
-      <div className={cn("grid gap-4 xl:grid-cols-3", printScope !== "all" && printScope !== "summary" && "print:hidden")}>
-        <Card>
-          <CardHeader>
-            <CardDescription>Toplam gelir</CardDescription>
-            <CardTitle>{formatCurrency(report?.totals.income ?? 0)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Toplam gider</CardDescription>
-            <CardTitle>{formatCurrency(report?.totals.expense ?? 0)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Net sonuc</CardDescription>
-            <CardTitle>{formatCurrency(report?.totals.net ?? 0)}</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+        <div className={cn("grid gap-4 xl:grid-cols-3", printScope !== "all" && printScope !== "summary" && "print:hidden")}>
+          <Card>
+            <CardHeader>
+              <CardDescription>Toplam gelir</CardDescription>
+              <CardTitle>{formatCurrency(report?.totals.income ?? 0)}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardDescription>Toplam gider</CardDescription>
+              <CardTitle>{formatCurrency(report?.totals.expense ?? 0)}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardDescription>Net sonuc</CardDescription>
+              <CardTitle>{formatCurrency(report?.totals.net ?? 0)}</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
 
-      <div className={cn("mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]", printScope !== "all" && printScope !== "summary" && printScope !== "categories" && "print:hidden")}>
-        <Card className={cn(printScope !== "all" && printScope !== "summary" && "print:hidden")}>
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle>Donem hareketi</CardTitle>
-              <CardDescription>PDF veya Excel disa aktarma icin uygun yapiya hazir ozet</CardDescription>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
-              onClick={() => triggerSectionPrint("summary")}
-              title="Sadece bu bölümü yazdır (1 Sayfa)"
-            >
-              <Printer className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="h-[340px]">
-            {chartReady ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={report?.dailyTrend ?? []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
-                  <Legend />
-                  <Bar dataKey="income" fill="#2a9d8f" name="Gelir" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="expense" fill="#e76f51" name="Gider" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card className={cn(printScope !== "all" && printScope !== "summary" && printScope !== "categories" && "print:hidden")}>
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle>Kategori bazli toplamlar</CardTitle>
-              <CardDescription>
-                {report?.periodLabel ?? "Secili donem"} • {selectedCategoryName}
-              </CardDescription>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
-              onClick={() => triggerSectionPrint("categories")}
-              title="Sadece bu bölümü yazdır"
-            >
-              <Printer className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {report?.byCategory.length ? (
-              report.byCategory.map((item) => (
-                <div key={item.category} className="rounded-2xl border border-border/70 bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium">{item.category}</p>
-                    <p className="text-sm text-muted-foreground">Net: {formatCurrency(item.net)}</p>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
-                    <div className="rounded-xl bg-muted/70 px-3 py-2">Gelir: {formatCurrency(item.income)}</div>
-                    <div className="rounded-xl bg-muted/70 px-3 py-2">Gider: {formatCurrency(item.expense)}</div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-dashed border-border bg-muted/60 p-8 text-sm text-muted-foreground">
-                Secilen donem icin rapor verisi yok.
+        <div className={cn("mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]", printScope !== "all" && printScope !== "summary" && printScope !== "categories" && "print:hidden")}>
+          <Card className={cn(printScope !== "all" && printScope !== "summary" && "print:hidden")}>
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>Donem hareketi</CardTitle>
+                <CardDescription>PDF veya Excel disa aktarma icin uygun yapiya hazir ozet</CardDescription>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className={cn("mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]", printScope !== "all" && printScope !== "comparison" && "print:hidden")}>
-        <Card className={cn(printScope !== "all" && printScope !== "comparison" && "print:hidden")}>
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle>Donem Karsilastirmasi</CardTitle>
-              <CardDescription>
-                Varsayilan olarak bu ay ve gecen ay gelir. Donem, kategori veya ikisini birlikte karsilastirin.
-              </CardDescription>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
-              onClick={() => triggerSectionPrint("comparison")}
-              title="Sadece bu bölümü yazdır"
-            >
-              <Printer className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="rounded-2xl border border-border/70 bg-white p-4">
-              <p className="mb-3 text-sm font-medium">Donem 1</p>
-              <ReportPeriodControls value={compareLeft} onChange={setCompareLeft} categories={categories} />
-              <p className="mt-3 text-sm text-muted-foreground">
-                {leftReport?.periodLabel ?? "Donem secin"} • {leftCategoryName}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-white p-4">
-              <p className="mb-3 text-sm font-medium">Donem 2</p>
-              <ReportPeriodControls value={compareRight} onChange={setCompareRight} categories={categories} />
-              <p className="mt-3 text-sm text-muted-foreground">
-                {rightReport?.periodLabel ?? "Donem secin"} • {rightCategoryName}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-              {comparisonMode}
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-2xl bg-muted/70 p-4">
-                <p className="text-sm text-muted-foreground">Gelir farki</p>
-                <p className="mt-2 text-lg font-semibold">
-                  {formatCurrency((leftReport?.totals.income ?? 0) - (rightReport?.totals.income ?? 0))}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-muted/70 p-4">
-                <p className="text-sm text-muted-foreground">Gider farki</p>
-                <p className="mt-2 text-lg font-semibold">
-                  {formatCurrency((leftReport?.totals.expense ?? 0) - (rightReport?.totals.expense ?? 0))}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-muted/70 p-4">
-                <p className="text-sm text-muted-foreground">Net farki</p>
-                <p className="mt-2 text-lg font-semibold">
-                  {formatCurrency((leftReport?.totals.net ?? 0) - (rightReport?.totals.net ?? 0))}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={cn(printScope !== "all" && printScope !== "comparison" && "print:hidden")}>
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle>Karsilastirma Ozeti</CardTitle>
-              <CardDescription>
-                {leftReport?.periodLabel ?? "Donem 1"} / {leftCategoryName} ve {rightReport?.periodLabel ?? "Donem 2"} / {rightCategoryName} yan yana
-              </CardDescription>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
-              onClick={() => triggerSectionPrint("comparison")}
-              title="Sadece bu bölümü yazdır"
-            >
-              <Printer className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-border/70 bg-white p-4">
-                <p className="text-sm text-muted-foreground">Donem 1</p>
-                <p className="mt-2 font-semibold">{leftReport?.periodLabel ?? "-"}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{leftCategoryName}</p>
-                <div className="mt-4 space-y-2 text-sm">
-                  <div>Gelir: {formatCurrency(leftReport?.totals.income ?? 0)}</div>
-                  <div>Gider: {formatCurrency(leftReport?.totals.expense ?? 0)}</div>
-                  <div>Net: {formatCurrency(leftReport?.totals.net ?? 0)}</div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-white p-4">
-                <p className="text-sm text-muted-foreground">Donem 2</p>
-                <p className="mt-2 font-semibold">{rightReport?.periodLabel ?? "-"}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{rightCategoryName}</p>
-                <div className="mt-4 space-y-2 text-sm">
-                  <div>Gelir: {formatCurrency(rightReport?.totals.income ?? 0)}</div>
-                  <div>Gider: {formatCurrency(rightReport?.totals.expense ?? 0)}</div>
-                  <div>Net: {formatCurrency(rightReport?.totals.net ?? 0)}</div>
-                </div>
-              </div>
-            </div>
-            {chartReady ? (
-              <div className="h-[280px]">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
+                onClick={() => triggerSectionPrint("summary")}
+                title="Sadece bu bölümü yazdır (1 Sayfa)"
+              >
+                <Printer className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="h-[340px]">
+              {chartReady ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      {
-                        metric: "Gelir",
-                        left: leftReport?.totals.income ?? 0,
-                        right: rightReport?.totals.income ?? 0,
-                      },
-                      {
-                        metric: "Gider",
-                        left: leftReport?.totals.expense ?? 0,
-                        right: rightReport?.totals.expense ?? 0,
-                      },
-                      {
-                        metric: "Net",
-                        left: leftReport?.totals.net ?? 0,
-                        right: rightReport?.totals.net ?? 0,
-                      },
-                    ]}
-                  >
+                  <BarChart data={report?.dailyTrend ?? []}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="metric" />
+                    <XAxis dataKey="label" />
                     <YAxis />
                     <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
                     <Legend />
-                    <Bar dataKey="left" name={`${leftReport?.periodLabel ?? "Donem 1"} • ${leftCategoryName}`} fill="#264653">
-                      {[0, 1, 2].map((index) => (
-                        <Cell key={`left-${index}`} fill="#264653" />
-                      ))}
-                    </Bar>
-                    <Bar dataKey="right" name={`${rightReport?.periodLabel ?? "Donem 2"} • ${rightCategoryName}`} fill="#f4a261">
-                      {[0, 1, 2].map((index) => (
-                        <Cell key={`right-${index}`} fill="#f4a261" />
-                      ))}
-                    </Bar>
+                    <Bar dataKey="income" fill="#2a9d8f" name="Gelir" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="expense" fill="#e76f51" name="Gider" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card className={cn(printScope !== "all" && printScope !== "summary" && printScope !== "categories" && "print:hidden")}>
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>Kategori bazli toplamlar</CardTitle>
+                <CardDescription>
+                  {report?.periodLabel ?? "Secili donem"} • {selectedCategoryName}
+                </CardDescription>
               </div>
-            ) : null}
-          </CardContent>
-        </Card>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
+                onClick={() => triggerSectionPrint("categories")}
+                title="Sadece bu bölümü yazdır"
+              >
+                <Printer className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {report?.byCategory.length ? (
+                report.byCategory.map((item) => (
+                  <div key={item.category} className="rounded-2xl border border-border/70 bg-white p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">{item.category}</p>
+                      <p className="text-sm text-muted-foreground">Net: {formatCurrency(item.net)}</p>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                      <div className="rounded-xl bg-muted/70 px-3 py-2">Gelir: {formatCurrency(item.income)}</div>
+                      <div className="rounded-xl bg-muted/70 px-3 py-2">Gider: {formatCurrency(item.expense)}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border bg-muted/60 p-8 text-sm text-muted-foreground">
+                  Secilen donem icin rapor verisi yok.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className={cn("mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]", printScope !== "all" && printScope !== "comparison" && "print:hidden")}>
+          <Card className={cn(printScope !== "all" && printScope !== "comparison" && "print:hidden")}>
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>Donem Karsilastirmasi</CardTitle>
+                <CardDescription>
+                  Varsayilan olarak bu ay ve gecen ay gelir. Donem, kategori veya ikisini birlikte karsilastirin.
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
+                onClick={() => triggerSectionPrint("comparison")}
+                title="Sadece bu bölümü yazdır"
+              >
+                <Printer className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="rounded-2xl border border-border/70 bg-white p-4">
+                <p className="mb-3 text-sm font-medium">Donem 1</p>
+                <ReportPeriodControls value={compareLeft} onChange={setCompareLeft} categories={categories} />
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {leftReport?.periodLabel ?? "Donem secin"} • {leftCategoryName}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-white p-4">
+                <p className="mb-3 text-sm font-medium">Donem 2</p>
+                <ReportPeriodControls value={compareRight} onChange={setCompareRight} categories={categories} />
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {rightReport?.periodLabel ?? "Donem secin"} • {rightCategoryName}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                {comparisonMode}
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl bg-muted/70 p-4">
+                  <p className="text-sm text-muted-foreground">Gelir farki</p>
+                  <p className="mt-2 text-lg font-semibold">
+                    {formatCurrency((leftReport?.totals.income ?? 0) - (rightReport?.totals.income ?? 0))}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-muted/70 p-4">
+                  <p className="text-sm text-muted-foreground">Gider farki</p>
+                  <p className="mt-2 text-lg font-semibold">
+                    {formatCurrency((leftReport?.totals.expense ?? 0) - (rightReport?.totals.expense ?? 0))}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-muted/70 p-4">
+                  <p className="text-sm text-muted-foreground">Net farki</p>
+                  <p className="mt-2 text-lg font-semibold">
+                    {formatCurrency((leftReport?.totals.net ?? 0) - (rightReport?.totals.net ?? 0))}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={cn(printScope !== "all" && printScope !== "comparison" && "print:hidden")}>
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>Karsilastirma Ozeti</CardTitle>
+                <CardDescription>
+                  {leftReport?.periodLabel ?? "Donem 1"} / {leftCategoryName} ve {rightReport?.periodLabel ?? "Donem 2"} / {rightCategoryName} yan yana
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground print:hidden shrink-0"
+                onClick={() => triggerSectionPrint("comparison")}
+                title="Sadece bu bölümü yazdır"
+              >
+                <Printer className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-border/70 bg-white p-4">
+                  <p className="text-sm text-muted-foreground">Donem 1</p>
+                  <p className="mt-2 font-semibold">{leftReport?.periodLabel ?? "-"}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{leftCategoryName}</p>
+                  <div className="mt-4 space-y-2 text-sm">
+                    <div>Gelir: {formatCurrency(leftReport?.totals.income ?? 0)}</div>
+                    <div>Gider: {formatCurrency(leftReport?.totals.expense ?? 0)}</div>
+                    <div>Net: {formatCurrency(leftReport?.totals.net ?? 0)}</div>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-border/70 bg-white p-4">
+                  <p className="text-sm text-muted-foreground">Donem 2</p>
+                  <p className="mt-2 font-semibold">{rightReport?.periodLabel ?? "-"}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{rightCategoryName}</p>
+                  <div className="mt-4 space-y-2 text-sm">
+                    <div>Gelir: {formatCurrency(rightReport?.totals.income ?? 0)}</div>
+                    <div>Gider: {formatCurrency(rightReport?.totals.expense ?? 0)}</div>
+                    <div>Net: {formatCurrency(rightReport?.totals.net ?? 0)}</div>
+                  </div>
+                </div>
+              </div>
+              {chartReady ? (
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          metric: "Gelir",
+                          left: leftReport?.totals.income ?? 0,
+                          right: rightReport?.totals.income ?? 0,
+                        },
+                        {
+                          metric: "Gider",
+                          left: leftReport?.totals.expense ?? 0,
+                          right: rightReport?.totals.expense ?? 0,
+                        },
+                        {
+                          metric: "Net",
+                          left: leftReport?.totals.net ?? 0,
+                          right: rightReport?.totals.net ?? 0,
+                        },
+                      ]}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="metric" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
+                      <Legend />
+                      <Bar dataKey="left" name={`${leftReport?.periodLabel ?? "Donem 1"} • ${leftCategoryName}`} fill="#264653">
+                        {[0, 1, 2].map((index) => (
+                          <Cell key={`left-${index}`} fill="#264653" />
+                        ))}
+                      </Bar>
+                      <Bar dataKey="right" name={`${rightReport?.periodLabel ?? "Donem 2"} • ${rightCategoryName}`} fill="#f4a261">
+                        {[0, 1, 2].map((index) => (
+                          <Cell key={`right-${index}`} fill="#f4a261" />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

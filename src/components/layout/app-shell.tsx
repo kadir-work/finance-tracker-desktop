@@ -48,8 +48,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-[280px_1fr] items-start gap-6 px-6 py-6">
+    <div className="app-shell min-h-screen bg-background text-foreground">
+      <div className="app-shell-grid mx-auto grid min-h-screen max-w-[1680px] grid-cols-[280px_1fr] items-start gap-6 px-6 py-6">
         <aside className="sticky top-6 flex max-h-[calc(100vh-3rem)] flex-col justify-between overflow-y-auto rounded-[28px] border border-white/60 bg-[linear-gradient(180deg,#264653_0%,#20323f_100%)] p-6 text-white shadow-soft">
           <div className="mb-10">
             <p className="text-xs uppercase tracking-[0.35em] text-white/60">Finans Takip</p>
@@ -103,8 +103,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <main className="overflow-hidden rounded-[28px] border border-border/70 bg-[radial-gradient(circle_at_top_right,#ffffff_0%,#f8faf7_45%,#eef1ea_100%)] shadow-soft">
-          <div className="h-full p-8">
-            <div className="print-only mb-6 border-b border-border pb-4">
+          <div className="app-content h-full p-8">
+            <div className="print-only print-header mb-6 border-b border-border pb-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-widest text-muted-foreground">Finans Takip Raporu</p>

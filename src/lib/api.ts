@@ -5,6 +5,7 @@ import type {
   DashboardData,
   DeleteCategoryBlockedPayload,
   MonthlyReportData,
+  ReportPeriodType,
   SettingsData,
   Transaction,
 } from "@/lib/types";
@@ -70,8 +71,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  getDashboard(month: string) {
-    return request<DashboardData>(`/api/dashboard?month=${month}`);
+  getDashboard(month: string, periodType: ReportPeriodType = "monthly") {
+    const params = new URLSearchParams({ periodType, ...(periodType === "monthly" ? { month } : {}) });
+    return request<DashboardData>(`/api/dashboard?${params}`);
   },
   getTransactions(params: URLSearchParams) {
     return request<Transaction[]>(`/api/transactions?${params.toString()}`);

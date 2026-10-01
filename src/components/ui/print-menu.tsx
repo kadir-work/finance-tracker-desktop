@@ -22,7 +22,7 @@ export function PrintMenu({
   className = "",
 }: PrintMenuProps) {
   return (
-    <Select onValueChange={(val) => onSelect(val)}>
+    <Select value="" onValueChange={(val) => onSelect(val)}>
       <SelectTrigger className={`w-[200px] print:hidden bg-primary text-primary-foreground hover:bg-primary/90 font-medium ${className}`}>
         <Printer className="mr-2 h-4 w-4 shrink-0" />
         <SelectValue placeholder={placeholder} />

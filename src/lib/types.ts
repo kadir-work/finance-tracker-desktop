@@ -53,7 +53,7 @@ export type DashboardData = {
 };
 
 export type MonthlyReportData = {
-  periodType: "daily" | "monthly" | "yearly" | "all";
+  periodType: ReportPeriodType;
   periodLabel: string;
   totals: {
     income: number;
@@ -73,7 +73,7 @@ export type MonthlyReportData = {
   }>;
 };
 
-export type ReportPeriodType = "daily" | "monthly" | "yearly" | "all";
+export type ReportPeriodType = "daily" | "monthly" | "yearly" | "all" | "last30days";
 
 export type DeleteCategoryBlockedPayload = {
   success: false;

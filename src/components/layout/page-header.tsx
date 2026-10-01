@@ -8,13 +8,12 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="mb-8 flex items-start justify-between gap-4">
+    <div className="page-header mb-8 flex items-start justify-between gap-4">
       <div>
         <h2 className="text-3xl font-semibold tracking-tight">{title}</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
-      {actions ? <div className="shrink-0">{actions}</div> : null}
+      {actions ? <div className="shrink-0 print:hidden">{actions}</div> : null}
     </div>
   );
 }
-

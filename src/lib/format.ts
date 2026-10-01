@@ -34,6 +34,10 @@ export function getMonthInputValue(date = new Date()) {
   return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, "0")}`;
 }
 
+export function getDayInputValue(date = new Date()) {
+  return `${getMonthInputValue(date)}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export function getPreviousMonthInputValue(date = new Date()) {
   return getMonthInputValue(new Date(date.getFullYear(), date.getMonth() - 1, 1));
 }

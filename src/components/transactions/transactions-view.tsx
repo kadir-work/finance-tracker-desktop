@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Pencil, Search, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
-import { formatCurrency, formatDate, getMonthInputValue } from "@/lib/format";
-import type { Category, Transaction } from "@/lib/types";
+import { formatCurrency, formatDate, getDayInputValue, getMonthInputValue } from "@/lib/format";
+import { getPeriodRange } from "@/lib/period";
+import type { Category, Transaction, ReportPeriodType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { TransactionForm } from "@/components/forms/transaction-form";
@@ -24,9 +25,9 @@ export function TransactionsView() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [month, setMonth] = useState(getMonthInputValue());
-  const [day, setDay] = useState(new Date().toISOString().slice(0, 10));
+  const [day, setDay] = useState(getDayInputValue());
   const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [periodType, setPeriodType] = useState<"daily" | "monthly" | "yearly" | "all">("monthly");
+  const [periodType, setPeriodType] = useState<ReportPeriodType>("monthly");
   const [categoryId, setCategoryId] = useState("all");
   const [type, setType] = useState("all");
   const [query, setQuery] = useState("");
@@ -39,9 +40,14 @@ export function TransactionsView() {
     setPrintScope(scope);
     setTimeout(() => {
       window.print();
-      setTimeout(() => setPrintScope("all"), 500);
     }, 150);
   };
+
+  useEffect(() => {
+    const resetPrintScope = () => setPrintScope("all");
+    window.addEventListener("afterprint", resetPrintScope);
+    return () => window.removeEventListener("afterprint", resetPrintScope);
+  }, []);
 
   const refresh = useCallback(async () => {
     const params = new URLSearchParams({
@@ -120,11 +126,12 @@ export function TransactionsView() {
           <CardTitle>Filtreler</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 xl:grid-cols-[220px_180px_220px_180px_1fr]">
-          <Select value={periodType} onValueChange={(value) => setPeriodType(value as "daily" | "monthly" | "yearly" | "all")}>
+          <Select value={periodType} onValueChange={(value) => setPeriodType(value as ReportPeriodType)}>
             <SelectTrigger>
               <SelectValue placeholder="Donem filtresi" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="last30days">Son 30 gun</SelectItem>
               <SelectItem value="daily">Gunluk</SelectItem>
               <SelectItem value="monthly">Aylik</SelectItem>
               <SelectItem value="yearly">Yillik</SelectItem>
@@ -139,7 +146,7 @@ export function TransactionsView() {
             <Input type="number" min="2000" max="2100" value={year} onChange={(event) => setYear(event.target.value)} />
           ) : (
             <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground">
-              Tum donemler gosteriliyor
+              {periodType === "last30days" ? "Son 30 gun gosteriliyor" : "Tum donemler gosteriliyor"}
             </div>
           )}
           <Select value={categoryId} onValueChange={setCategoryId}>
@@ -227,7 +234,13 @@ export function TransactionsView() {
         </div>
       ) : null}
 
-      <div className={cn("mt-6 grid gap-4 xl:grid-cols-3", printScope !== "all" && printScope !== "summary" && "print:hidden")}>
+      <p className="print-only">
+        {getPeriodRange(periodType, { day, month, year }).label}
+        {" • "}{categoryId === "all" ? "Tum kategoriler" : categories.find((category) => category.id === categoryId)?.name}
+        {" • "}{type === "all" ? "Gelir ve gider" : type === "income" ? "Gelir" : "Gider"}
+        {query && ` • Arama: ${query}`}
+      </p>
+      <div className={cn("print-grid-three mt-6 grid gap-4 xl:grid-cols-3", printScope !== "all" && printScope !== "summary" && "print:hidden")}>
         <Card>
           <CardHeader>
             <CardTitle>Filtreli gelir</CardTitle>
@@ -252,78 +265,96 @@ export function TransactionsView() {
         <CardHeader>
           <CardTitle>Kayit listesi</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {transactions.length ? (
-            transactions.map((transaction) => (
-              <div key={transaction.id} className="grid gap-4 rounded-2xl border border-border/70 bg-white p-4 xl:grid-cols-[140px_1.3fr_180px_140px_160px_120px] xl:items-center">
-                <div className="text-sm text-muted-foreground">{formatDate(transaction.date)}</div>
-                <div>
-                  <p className="font-medium">{transaction.description}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{transaction.person}</p>
+        <CardContent>
+          <div className="print-only report-print">
+            <table className="print-transactions">
+              <thead><tr><th scope="col">Tarih</th><th scope="col">Aciklama / Kisi</th><th scope="col">Kategori</th><th scope="col">Tur</th><th scope="col">Tutar</th></tr></thead>
+              <tbody>
+                {transactions.length ? transactions.map((item) => (
+                  <tr key={item.id}>
+                    <td>{formatDate(item.date)}</td>
+                    <td>{item.description}<span className="print-person">{item.person}</span></td>
+                    <td>{item.category.parent ? `${item.category.parent.name} > ` : ""}{item.category.name}</td>
+                    <td>{item.type === "income" ? "Gelir" : "Gider"}</td>
+                    <td>{formatCurrency(item.amount, item.currencyCode ?? "TRY")}</td>
+                  </tr>
+                )) : <tr><td colSpan={5}>Bu filtrelerle eslesen kayit bulunmuyor.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="space-y-3 print:hidden">
+            {transactions.length ? (
+              transactions.map((transaction) => (
+                <div key={transaction.id} className="grid gap-4 rounded-2xl border border-border/70 bg-white p-4 xl:grid-cols-[140px_1.3fr_180px_140px_160px_120px] xl:items-center">
+                  <div className="text-sm text-muted-foreground">{formatDate(transaction.date)}</div>
+                  <div>
+                    <p className="font-medium">{transaction.description}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{transaction.person}</p>
+                  </div>
+                  <div className="text-sm">
+                    {transaction.category.parent ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-muted-foreground">{transaction.category.parent.name} &gt;</span>
+                        <span className="font-medium">{transaction.category.name}</span>
+                      </span>
+                    ) : (
+                      transaction.category.name
+                    )}
+                  </div>
+                  <div className="text-sm">{transaction.type === "income" ? "Gelir" : "Gider"}</div>
+                  <div className="font-semibold">{formatCurrency(transaction.amount, transaction.currencyCode ?? "TRY")}</div>
+                  <div className="flex items-center gap-2 xl:justify-end print:hidden">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setEditing(transaction);
+                        setEditingError("");
+                        router.replace(`/islemler?edit=${transaction.id}`);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="icon">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Kayit silinsin mi?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Bu islem geri alinmaz. Kayit aylik raporlardan da kaldirilir.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel asChild>
+                            <Button variant="outline">Vazgec</Button>
+                          </AlertDialogCancel>
+                          <AlertDialogAction asChild>
+                            <Button
+                              variant="destructive"
+                              onClick={async () => {
+                                await api.deleteTransaction(transaction.id);
+                                refresh().catch(console.error);
+                              }}
+                            >
+                              Sil
+                            </Button>
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-                <div className="text-sm">
-                  {transaction.category.parent ? (
-                    <span className="inline-flex items-center gap-1">
-                      <span className="text-muted-foreground">{transaction.category.parent.name} &gt;</span>
-                      <span className="font-medium">{transaction.category.name}</span>
-                    </span>
-                  ) : (
-                    transaction.category.name
-                  )}
-                </div>
-                <div className="text-sm">{transaction.type === "income" ? "Gelir" : "Gider"}</div>
-                <div className="font-semibold">{formatCurrency(transaction.amount, transaction.currencyCode ?? "TRY")}</div>
-                <div className="flex items-center gap-2 xl:justify-end print:hidden">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      setEditing(transaction);
-                      setEditingError("");
-                      router.replace(`/islemler?edit=${transaction.id}`);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="icon">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Kayit silinsin mi?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Bu islem geri alinmaz. Kayit aylik raporlardan da kaldirilir.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel asChild>
-                          <Button variant="outline">Vazgec</Button>
-                        </AlertDialogCancel>
-                        <AlertDialogAction asChild>
-                          <Button
-                            variant="destructive"
-                            onClick={async () => {
-                              await api.deleteTransaction(transaction.id);
-                              refresh().catch(console.error);
-                            }}
-                          >
-                            Sil
-                          </Button>
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border bg-muted/60 p-8 text-center text-sm text-muted-foreground">
+                Bu filtrelerle eslesen kayit bulunmuyor.
               </div>
-            ))
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border bg-muted/60 p-8 text-center text-sm text-muted-foreground">
-              Bu filtrelerle eslesen kayit bulunmuyor.
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
